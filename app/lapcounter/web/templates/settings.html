@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block body %}
+<h1>Settings</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if notice %}<p class="status ok" role="status">{{ notice }}</p>{% endif %}
+
+<h2>RC Race HQ link</h2>
+{% if link %}
+  <p class="status ok">Linked to {{ link.club.name }} / {{ link.track.name }}.</p>
+  <table>
+    <tbody>
+      <tr><th>Lap counter</th><td>{{ link.thingName }}</td></tr>
+      <tr><th>Environment</th><td>{{ link.stage }} ({{ link.region }})</td></tr>
+      <tr><th>Linked</th><td class="ts" data-ms="{{ link.linkedAt * 1000 }}"></td></tr>
+    </tbody>
+  </table>
+  <form method="post" action="{{ url_for('settings.check') }}" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button type="submit">Test connection</button>
+  </form>
+  <form method="post" action="{{ url_for('settings.forget') }}" class="inline"
+        data-confirm="Remove the link from this Pi? It stops syncing until it's linked again.">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button type="submit" class="secondary">Remove link</button>
+  </form>
+{% endif %}
+
+{% if pairing %}
+<div id="link" data-api="{{ url_for('settings.poll') }}" data-done="{{ url_for('settings.index') }}">
+  <p>In RC Race HQ, go to <strong>Manage → your club → Lap counters</strong>, enter this code and pick the track:</p>
+  <p class="code">{{ pairing.code }}</p>
+  <p id="message" class="status unknown" aria-live="polite">Waiting for the code to be entered…</p>
+  <p class="note">The code works once and expires <span class="ts" data-ms="{{ pairing.expiresAt * 1000 }}"></span>.
+    {% if link %}The current link keeps working until this one finishes.{% endif %}</p>
+  <form method="post" action="{{ url_for('settings.cancel') }}" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button type="submit" class="secondary">Cancel</button>
+  </form>
+</div>
+{% elif configured %}
+  {% if not link %}<p>Not linked. Linking lets this Pi download your club's events and send results back.</p>{% endif %}
+  <form method="post" action="{{ url_for('settings.start') }}"
+        {% if link %}data-confirm="Link to a different track? The old link is replaced once the new code is entered."{% endif %}>
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button type="submit">{% if link %}Link to another track{% else %}Link to RC Race HQ{% endif %}</button>
+  </form>
+{% else %}
+  <p class="error">RC Race HQ isn't configured on this Pi. Set <code>lapcounter_app_rcracehq_api_url</code>
+    in the deploy inventory and redeploy.</p>
+{% endif %}
+{% if api_url %}<p class="note">API: {{ api_url }}</p>{% endif %}
+
+<h2>Advanced: hotspot Wi-Fi</h2>
+<p class="note">Open (the default) lets racers check in and see race status without a password.
+  Choose WPA2 to encrypt the network; racers then need the passphrase.</p>
+<form method="post" action="{{ url_for('settings.set_wifi') }}">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <p><label>Network name <input name="ssid" value="{{ wifi.ssid }}" maxlength="32" required></label></p>
+  <p><label>Security
+    <select name="security">
+      <option value="open" {% if wifi.security == 'open' %}selected{% endif %}>Open (no password)</option>
+      <option value="wpa2" {% if wifi.security == 'wpa2' %}selected{% endif %}>WPA2 passphrase</option>
+    </select></label></p>
+  <p><label>Passphrase (WPA2 only) <input name="passphrase" type="password" value="{{ wifi.passphrase }}"
+    minlength="8" maxlength="63" autocomplete="off"></label></p>
+  <button type="submit">Save Wi-Fi</button>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='times.js') }}"></script>
+<script src="{{ url_for('static', filename='confirm.js') }}"></script>
+{% if pairing %}<script src="{{ url_for('static', filename='link.js') }}"></script>{% endif %}{% endblock %}

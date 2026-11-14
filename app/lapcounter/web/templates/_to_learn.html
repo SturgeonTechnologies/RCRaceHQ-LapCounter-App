@@ -1,0 +1,34 @@
+{% macro to_learn_groups(groups) -%}
+{% if groups %}
+  {% for g in groups %}
+  <h3><a href="{{ url_for('events.show', event_id=g.event_id) }}">{{ g.event_title }}</a>
+    <span class="note">{{ g.event_date[:10] }} · {{ g.rows|length }} missing</span></h3>
+  <table>
+    <thead><tr><th>Racer</th><th>Class</th><th>Transponder</th><th></th></tr></thead>
+    <tbody>
+    {% for e in g.rows %}
+      <tr>
+        <td>{{ e.racer_name }}{% if e.notified_at_ms %} <span class="badge">notify requested <span class="ts" data-ms="{{ e.notified_at_ms }}"></span></span>{% endif %}</td>
+        <td>{{ e.racer_class }}</td>
+        <td>{% if e.reason == "none" %}<span class="error">none on the registration</span>{% else %}{{ e.transponder }} <span class="badge bad">not recorded on this Pi</span>{% endif %}</td>
+        <td>{% if e.learnable %}<a href="{{ url_for('transponders.index', label=e.transponder, racer_name=e.racer_name) }}#learn">Learn</a>{% else %}<a href="{{ url_for('transponders.index', racer_name=e.racer_name) }}#learn">Learn (type the number)</a>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="{{ url_for('transponders.notify', event_id=g.event_id) }}" class="inline"
+        data-confirm="Notify {{ g.rows|length }} racer{{ '' if g.rows|length == 1 else 's' }} in {{ g.event_title }} that we're missing their transponder?">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button type="submit">Notify racers we are missing their transponder for the race</button>
+  </form>
+  {% endfor %}
+{% else %}
+<p class="status ok">Every racer's transponder is recorded on this Pi.</p>
+{% endif %}
+{%- endmacro %}
+
+{% macro missing_summary(c) -%}
+{{ c.racers }} racer{{ "" if c.racers == 1 else "s" }}
+{%- if c.missing %} · <a class="badge bad" href="{{ url_for('transponders.index') }}#to-learn">{{ c.missing }} missing transponder{{ "" if c.missing == 1 else "s" }}</a>
+{%- elif c.racers %} · <span class="badge ok">all transponders recorded</span>{% endif %}
+{%- endmacro %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_to_learn.html" import missing_summary %}
+{% block title %}Events{% endblock %}
+{% block body %}
+<h1>Events</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if notice %}<p class="status ok" role="status">{{ notice }}</p>{% endif %}
+
+{% if not link %}
+<p class="status bad">This Pi isn't linked to RC Race HQ yet, so it can't download events.
+  <a href="{{ url_for('settings.index') }}">Link it under Settings</a> first.</p>
+{% else %}
+{% set lc = (last.lapCounter if last else {}) or {} %}
+<p>Linked to <strong>{{ lc.clubName or (link.club.name if link.club else "") }}</strong>
+  / {{ lc.trackName or (link.track.name if link.track else "") }}.
+  {% if last %}Last download <span class="ts" data-ms="{{ last.at_ms }}"></span>.{% else %}Nothing downloaded yet.{% endif %}</p>
+<form method="post" action="{{ url_for('events.download') }}" class="stack">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <button type="submit">Download events from RC Race HQ</button>
+</form>
+<p class="note">Takes a few seconds. Downloads the club's upcoming published events,
+  their classes, registrations and heats. Re-downloading replaces this Pi's copy.</p>
+{% endif %}
+
+<h2>Downloaded events</h2>
+{% if events %}
+<table>
+  <thead><tr><th>Date</th><th>Event</th><th>Racers</th><th>Location</th></tr></thead>
+  <tbody>
+  {% for e in events %}
+    <tr>
+      <td>{{ e.date_iso[:10] }}</td>
+      <td><a href="{{ url_for('events.show', event_id=e.event_id) }}">{{ e.title }}</a></td>
+      <td>{{ missing_summary(counts.get(e.event_id, {"racers": 0, "missing": 0})) }}</td>
+      <td>{{ e.location or "" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>None yet.</p>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='times.js') }}"></script>{% endblock %}

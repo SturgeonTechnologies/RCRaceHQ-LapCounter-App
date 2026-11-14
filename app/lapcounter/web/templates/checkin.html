@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Check in{% endblock %}
+{# Kiosk: wait for the event to open, and don't leave a typed number on screen. #}
+{% block head %}{% if kiosk and (not events or phone) %}<meta http-equiv="refresh" content="{{ 60 if not events else idle_s }};url={{ ep('form') }}">{% endif %}{% endblock %}
+{% block body_class %}{% if kiosk %} class="kiosk"{% endif %}{% endblock %}
+{% block header %}{% if not kiosk %}{{ super() }}{% endif %}{% endblock %}
+{% block body %}
+<h1>{% if kiosk %}Racing today? Check in{% else %}Check in{% endif %}</h1>
+{% if not events %}
+<p class="status unknown">Check-in isn't open yet. Try again once the race desk opens the event.</p>
+{% else %}
+<p>Type the phone number on your RC Race HQ account. If someone else registered you, use theirs.</p>
+{% if error %}<p class="status bad" role="alert">{{ error }}</p>{% endif %}
+<form method="post" action="{{ ep('submit') }}" class="checkin" autocomplete="off">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  {% if events|length > 1 %}
+  <label for="event_id">Event</label>
+  <select id="event_id" name="event_id">
+    {% for ev in events %}<option value="{{ ev.event_id }}">{{ ev.title }}</option>{% endfor %}
+  </select>
+  {% else %}
+  <p class="note">{{ events[0].title }}</p>
+  <input type="hidden" name="event_id" value="{{ events[0].event_id }}">
+  {% endif %}
+  <label for="phone">Phone number</label>
+  <input id="phone" name="phone" type="tel" inputmode="tel" {% if not kiosk %}autocomplete="tel"{% endif %} required maxlength="40"
+         value="{{ phone }}" placeholder="509 555 1234" {% if kiosk %}autofocus{% endif %}>
+  <button type="submit" name="action" value="arrive">I'm here, check me in</button>
+  {% if not kiosk %}<button type="submit" name="action" value="look" class="secondary">Just show what I still need</button>{% endif %}
+</form>
+{% endif %}
+{% endblock %}

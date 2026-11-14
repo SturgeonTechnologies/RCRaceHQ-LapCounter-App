@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_kiosk.html" import kiosk_head %}
+{% block title %}Checked in{% endblock %}
+{% block head %}{{ kiosk_head(kiosk, idle_s, ep('form')) }}{% endblock %}
+{% block body_class %}{% if kiosk %} class="kiosk"{% endif %}{% endblock %}
+{% block header %}{% if not kiosk %}{{ super() }}{% endif %}{% endblock %}
+{% block body %}
+{% if arrived %}
+<h1>{% if name %}Thanks, {{ name }}!{% else %}Thanks!{% endif %}</h1>
+<p class="status ok">You're checked in{% if classes %} for {{ classes|join(", ") }}{% endif %}.</p>
+{% else %}
+<h1>{% if name %}Hi, {{ name }}{% else %}Hi{% endif %}</h1>
+<p class="status unknown">You're registered{% if classes %} for {{ classes|join(", ") }}{% endif %}, but not checked in yet.</p>
+<form method="post" action="{{ url_for('checkin.arrive') }}" class="checkin">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <button type="submit">I'm here, check me in</button>
+</form>
+{% endif %}
+{% if message %}<p class="status bad" role="alert">{{ message }}</p>{% endif %}
+
+<h2>Before you race</h2>
+<ul class="checklist">
+  {% for i in items %}
+  <li class="{{ 'done' if i.done else ('info' if i.done is none else 'todo') }}">
+    <span class="mark" aria-hidden="true">{{ '✓' if i.done else ('•' if i.done is none else '○') }}</span>
+    <span><strong>{{ i.label }}</strong>{% if i.done is sameas false and i.how %}<br><span class="how">{{ i.how }}</span>{% endif %}</span>
+  </li>
+  {% endfor %}
+</ul>
+
+{% if is_ready %}
+<p class="status ok ready-banner">Ready to race! 🏁</p>
+{% else %}
+<form method="post" action="{{ ep('ready') }}" class="checkin">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <button type="submit" class="ready" {% if not ready_ok %}disabled aria-disabled="true"{% endif %}>Ready to race!</button>
+</form>
+{% if not ready_ok %}<p class="note">The button turns on once everything above has a check mark.</p>{% endif %}
+{% endif %}
+
+<p class="actions">
+  <a class="button" href="{{ ep('status') }}">Check again</a>
+  {% if kiosk %}<a class="button secondary" href="{{ ep('form') }}">Done, next racer</a>
+  {% else %}<a href="{{ url_for('live.index') }}">Live timing</a>{% endif %}
+</p>
+{% endblock %}

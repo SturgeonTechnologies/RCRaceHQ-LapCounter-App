@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% from "_to_learn.html" import missing_summary %}
+{% block title %}{{ ev.title }}{% endblock %}
+{% block body %}
+<p><a href="{{ url_for('events.index') }}">← Events</a></p>
+<h1>{{ ev.title }}</h1>
+<p>{{ ev.date_iso[:10] }}{% if ev.end_date_iso and ev.end_date_iso[:10] != ev.date_iso[:10] %} to {{ ev.end_date_iso[:10] }}{% endif %}{% if ev.location %} · {{ ev.location }}{% endif %}
+  · downloaded <span class="ts" data-ms="{{ ev.downloaded_at_ms }}"></span></p>
+{% if pack.description %}<p class="note">{{ pack.description }}</p>{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if active %}<p class="status ok">On track: <a href="{{ url_for('race.show', run_id=active.id) }}">{{ active.title }}</a></p>{% endif %}
+
+<h2 id="racers">Racers</h2>
+<p>{{ missing_summary(counts) }}</p>
+{% if counts.missing %}<p><a href="{{ url_for('transponders.index') }}#to-learn">Learn the missing transponders →</a></p>{% endif %}
+
+<h2 id="checkin">Walk-up check-in</h2>
+{% if checkout %}
+<p>{{ checked_in|length }} of {{ by_reg|length }} registration{{ "" if by_reg|length == 1 else "s" }} checked in.
+  {{ ready_ids|length }} ready to race.
+  Racers check in at <a href="{{ url_for('checkin.form') }}">Check in</a> on the hotspot with their account phone,
+  or at a tablet at the desk showing <a href="{{ url_for('checkin.kiosk_form') }}">the kiosk</a>.</p>
+{% set waiting = by_reg.values()|rejectattr("registration_id", "in", checked_in)|list %}
+{% if waiting %}<p class="note">Not here yet: {% for e in waiting %}{{ e.racer_name }} ({{ e.racer_class }}){{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
+{% else %}
+<p class="note">Check-in opens when this event is checked out on this lap counter.</p>
+{% endif %}
+<form method="post" action="{{ url_for('checkin.save_note') }}" class="inline">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="event_id" value="{{ ev.event_id }}">
+  <label for="checkin-note">Extra to-do shown to every racer after check-in</label>
+  <input id="checkin-note" name="note" maxlength="300" size="50" value="{{ checkin_note }}" placeholder="Tech inspection at the tower before your first heat">
+  <button type="submit">Save</button>
+</form>
+
+<h2>Classes</h2>
+{% if pack.classes %}
+<table>
+  <thead><tr><th>Class</th><th>Qualifying rounds</th><th>Mains</th><th>Racers</th><th>Missing transponders</th></tr></thead>
+  <tbody>
+  {% for c in pack.classes %}
+    <tr><td>{{ c.name }}</td><td>{{ c.qualifyingRounds }}</td><td>{{ c.mains }}</td>{% set cc = counts.classes.get(c.name, {"racers": 0, "missing": 0}) %}
+      <td>{{ cc.racers }}</td>
+      <td>{% if cc.missing %}<a class="badge bad" href="{{ url_for('transponders.index') }}#to-learn">{{ cc.missing }}</a>{% elif cc.racers %}<span class="badge ok">0</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No classes set on this event in RC Race HQ.</p>
+{% endif %}
+
+<h2 id="heats">Heats (run order)</h2>
+{% if days %}
+  {% for day, heats in days %}
+  <h3>{{ day }}</h3>
+  <ol class="heats">
+    {% for h in heats %}
+    <li>
+      <strong>{{ h.className }} · {{ "Qualifier" if h.roundType == "qualifier" else "Main" }} {{ h.roundNumber }}</strong>
+      {% set r = runs.get(h.heatId) %}
+      {% if r and r.state == "started" %}
+        <a class="badge ok" href="{{ url_for('race.show', run_id=r.id) }}">on track</a>
+      {% elif r and r.state == "finished" %}
+        <a class="badge ok" href="{{ url_for('race.show', run_id=r.id) }}">finished · results</a>
+      {% elif r and r.state == "aborted" %}
+        <a class="badge bad" href="{{ url_for('race.show', run_id=r.id) }}">aborted</a>
+      {% endif %}
+      {% if not active %}
+      <form method="post" action="{{ url_for('race.start', event_id=ev.event_id, heat_id=h.heatId) }}" class="start-heat"{% if r and r.state == "finished" %} data-confirm="This heat already has results. Run it again? The new results replace them."{% endif %}>
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <label>Length <input type="number" name="duration_min" value="{{ defaults.duration_min }}" min="0.5" max="60" step="0.5" required> min</label>
+        <label>Min lap <input type="number" name="min_lap_s" value="{{ defaults.min_lap_s }}" min="1" max="120" step="0.5" required> s</label>
+        <button type="submit">{% if r and r.state == "finished" %}Re-run{% else %}Start{% endif %}</button>
+      </form>
+      {% endif %}
+      {% if h.entries %}
+        <span class="note">({{ h.entries|length }} on the grid)</span>
+        <ol class="grid">
+        {% for g in h.entries|sort(attribute="grid") %}
+          {% set e = by_reg.get(g.registrationId) %}
+          <li>{% if e %}{{ e.racer_name }}
+            {% if e.transponder %}<span class="note">{{ e.transponder }}</span> {% if e.transponder in known %}<span class="badge ok">learned</span>{% else %}<span class="badge bad">not learned</span>{% endif %}{% else %}<span class="badge bad">no transponder</span>{% endif %}
+          {% else %}<span class="note">(registration {{ g.registrationId }} isn't in this download)</span>{% endif %}</li>
+        {% endfor %}
+        </ol>
+      {% else %}
+        {% set racers = by_class.get(h.className, []) %}
+        <div class="note">Racers in this class: {% if racers %}{% for e in racers %}{{ e.racer_name }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}none registered{% endif %}</div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% endfor %}
+{% else %}
+<p>No heats built in RC Race HQ yet (Manage → event → Heats).</p>
+{% endif %}
+
+<h2 id="qualifying">Qualifying (best lap)</h2>
+{% if qualifying %}
+  {% for cls, ranking in qualifying %}
+  <h3>{{ cls }}</h3>
+  <table>
+    <thead><tr><th>#</th><th>Racer</th><th>Best lap</th><th>Heats run</th></tr></thead>
+    <tbody>
+    {% for q in ranking %}
+      <tr><td>{{ q.place }}</td><td>{{ q.racerName }}</td>
+        <td>{% if q.bestLapMs is not none %}{{ "%.3f"|format(q.bestLapMs / 1000) }} s{% else %}<span class="note">no complete lap</span>{% endif %}</td>
+        <td>{{ q.heats }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+{% else %}
+<p class="note">Shows here once a qualifier heat has finished.</p>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='times.js') }}"></script>
+<script src="{{ url_for('static', filename='confirm.js') }}"></script>{% endblock %}

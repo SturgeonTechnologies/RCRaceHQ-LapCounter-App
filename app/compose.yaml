@@ -1,0 +1,54 @@
+# Runs next to openstint.service on the Pi. Host networking so lapd reaches the
+# decoder on 127.0.0.1:5556 and the web port is reachable on the hotspot and
+# (with race_hotspot_web_on_eth0) the wired side. On the Pi, the lapcounter_app
+# role in RCRaceHQ-LapCounter-Install renders its own copy with a pinned GHCR
+# image and a bind-mounted /var/lib/lapcounter; this one is for local runs.
+services:
+  web:
+    image: ${LAPCOUNTER_IMAGE:-lapcounter:dev}
+    build: .
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      LAPCOUNTER_DB: /var/lib/lapcounter/lapcounter.db
+      OPENSTINT_RC4_DIR: /var/lib/openstint
+      # RC Race HQ API for Settings → Link (pairing to a club).
+      RCRACEHQ_API_URL: ${RCRACEHQ_API_URL:-https://www.rcracehq.com/api}
+    # OpenStint's .rc4 folder (root:users 2775): Record renames files in it, so
+    # the web container joins the folder's group (users = gid 100).
+    group_add: ["100"]
+    volumes:
+      - lapcounter-data:/var/lib/lapcounter
+      - /var/lib/openstint:/var/lib/openstint
+      # Settings → Advanced writes wifi.json here; the host applies it to the hotspot.
+      - ${LAPCOUNTER_WIFI_HOST_DIR:-./wifi}:/etc/lapcounter
+  lapd:
+    image: ${LAPCOUNTER_IMAGE:-lapcounter:dev}
+    network_mode: host
+    restart: unless-stopped
+    command: ["python", "-m", "lapcounter.lapd"]
+    healthcheck:
+      disable: true
+    environment:
+      LAPCOUNTER_DB: /var/lib/lapcounter/lapcounter.db
+      OPENSTINT_ZMQ: tcp://127.0.0.1:5556
+    volumes:
+      - lapcounter-data:/var/lib/lapcounter
+  # Runs heats to time, uploads learned .rc4 files to the shared library and
+  # sends the outbox (results, laps, learned transponders) to RC Race HQ.
+  syncd:
+    image: ${LAPCOUNTER_IMAGE:-lapcounter:dev}
+    network_mode: host
+    restart: unless-stopped
+    command: ["python", "-m", "lapcounter.syncd"]
+    healthcheck:
+      disable: true
+    environment:
+      LAPCOUNTER_DB: /var/lib/lapcounter/lapcounter.db
+      OPENSTINT_RC4_DIR: /var/lib/openstint
+    volumes:
+      - lapcounter-data:/var/lib/lapcounter
+      - /var/lib/openstint:/var/lib/openstint:ro
+
+volumes:
+  lapcounter-data:

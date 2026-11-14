@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "_to_learn.html" import to_learn_groups with context %}
+{% block title %}Transponders{% endblock %}
+{% macro delete_button(number) -%}
+<form method="post" action="{{ url_for('transponders.delete', number=number) }}" class="inline"
+      data-confirm="Delete {{ number }}? The decoder forgets it and it has to be learned again.">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <button type="submit" class="link">Delete</button>
+</form>
+{%- endmacro %}
+{% macro library_cell(number) -%}
+{% set st = library.get(number) %}
+{%- if not st %}<span class="muted">not sent</span>
+{%- elif st.state == "added" %}In library
+{%- elif st.state == "waiting" %}<span class="muted">sending…</span>
+{%- else %}<span class="error" title="{{ st.reason }}">Refused</span><br><small>{{ st.reason }}</small>{% endif %}
+{%- endmacro %}
+{% block body %}
+<h1>Transponders</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if notice %}<p class="status ok" role="status">{{ notice }}</p>{% endif %}
+{% if deleted %}<p class="status ok" role="status">Deleted {{ deleted }}. It can be learned again.</p>{% endif %}
+
+<h2 id="learn">Learn a transponder</h2>
+{% if current %}
+  <p class="status unknown">Learning {{ current.label }} is still open.
+    <a href="{{ url_for('transponders.learn', session_id=current.id) }}">Go back to it</a>,
+    or start another below (that cancels it).</p>
+{% endif %}
+<p class="note">Pure RC4 transponders need learning once; RC3 and RC4 Hybrid ones
+send their own number and just get added to the list.</p>
+<form method="post" action="{{ url_for('transponders.start') }}" class="stack">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <label>Number on the label
+    <input name="label" inputmode="numeric" pattern="[0-9]+" maxlength="10" required autofocus autocomplete="off" value="{{ prefill_label }}">
+  </label>
+  <label>Racer name (optional)
+    <input name="racer_name" maxlength="64" autocomplete="off" value="{{ prefill_name }}">
+  </label>
+  <button type="submit">Learn</button>
+</form>
+
+{% if strays %}
+<p class="error">Decoder files nobody recorded yet: {% for n in strays %}{{ n }}.rc4 {{ delete_button(n) }}{% if not loop.last %}, {% endif %}{% endfor %}.
+  The decoder reports those transponders by that number until they're deleted.</p>
+{% endif %}
+
+{% if has_events %}
+<h2 id="to-learn">Transponders we don't know yet</h2>
+<p class="note">Racers in the downloaded <a href="{{ url_for('events.index') }}">events</a> with no
+  transponder on their registration, or one that isn't recorded on this Pi.
+  <strong>Learn</strong> fills in the form above.</p>
+{{ to_learn_groups(to_learn) }}
+{% endif %}
+
+<h2>Known transponders</h2>
+{% if transponders or unlisted_files %}
+<table>
+  <thead><tr><th>Number</th><th>Racer</th><th>Type</th><th>Learned</th><th>RC Race HQ</th><th></th></tr></thead>
+  <tbody>
+  {% for t in transponders %}
+    <tr>
+      <td>{{ t.number }}</td>
+      <td>{{ t.racer_name or "" }}</td>
+      <td>{% if t.kind == "rc4" %}RC4{% if t.number not in has_file %} <span class="error">(file missing)</span>{% endif %}{% else %}RC3 / Hybrid{% endif %}</td>
+      <td class="ts" data-ms="{{ t.learned_at_ms }}"></td>
+      <td>{{ library_cell(t.number) }}</td>
+      <td>{{ delete_button(t.number) }}</td>
+    </tr>
+  {% endfor %}
+  {% for n in unlisted_files %}
+    <tr><td>{{ n }}</td><td></td><td>RC4 (file only)</td><td></td><td>{{ library_cell(n) }}</td><td>{{ delete_button(n) }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>None yet.</p>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='times.js') }}"></script>
+<script src="{{ url_for('static', filename='confirm.js') }}"></script>{% endblock %}

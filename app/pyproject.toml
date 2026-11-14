@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lapcounter"
+version = "0.1.0"
+description = "Offline-first RC lap counter services (lapd + web) for the Pi"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0,<4",
+    "gunicorn>=22,<24",
+    "pyzmq>=25,<28",
+    "argon2-cffi>=23,<26",
+    "cryptography>=42,<47",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["lapcounter*"]
+
+[tool.setuptools.package-data]
+"lapcounter.web" = ["templates/*.html", "static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

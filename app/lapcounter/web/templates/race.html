@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ run.title }}{% endblock %}
+{% block body %}
+<p><a href="{{ url_for('events.show', event_id=run.event_id) }}#heats">← Event</a></p>
+<h1>{{ run.title }}</h1>
+<p class="note">{{ run.duration_s // 60 }}:{{ "%02d"|format(run.duration_s % 60) }} heat · min lap {{ "%g"|format(run.min_lap_ms / 1000) }} s · {{ run.entries|length }} on the grid</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<div id="race" data-src="{{ url_for('race.show_json', run_id=run.id) }}" data-admin="1" data-initial='{{ v|tojson|forceescape }}'>
+  <p class="race-clock"><span id="race-phase">{{ v.phase }}</span> <span id="race-clock"></span></p>
+
+  <div class="controls">
+    <form method="post" action="{{ url_for('race.cancel', run_id=run.id) }}" class="inline" data-phases="countdown">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button type="submit">Cancel start</button>
+    </form>
+    <form method="post" action="{{ url_for('race.end', run_id=run.id) }}" class="inline" data-phases="running finishing"
+          data-confirm="End the heat now? Results are taken as they stand.">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button type="submit">End heat</button>
+    </form>
+    <form method="post" action="{{ url_for('race.abort_run', run_id=run.id) }}" class="inline" data-phases="countdown running finishing"
+          data-confirm="Abort this heat? No results are kept and it can be run again.">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button type="submit" class="secondary">Abort</button>
+    </form>
+  </div>
+
+  <table id="standings">
+    <thead><tr><th>#</th><th>Racer</th><th>Laps</th><th>Time</th><th>Best</th><th>Last</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <div id="unknown" hidden>
+    <h2>Transponders not on the grid</h2>
+    <p class="note">Seen during this heat but not in its lineup. Check the racer's transponder number in RC Race HQ, or learn it.</p>
+    <ul></ul>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='race.js') }}"></script>
+<script src="{{ url_for('static', filename='confirm.js') }}"></script>{% endblock %}

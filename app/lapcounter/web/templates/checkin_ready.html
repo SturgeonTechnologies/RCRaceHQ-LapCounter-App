@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "_kiosk.html" import kiosk_head %}
+{% block title %}Ready to race{% endblock %}
+{% block head %}{{ kiosk_head(kiosk, 6, home) }}{% endblock %}
+{% block body_class %}{% if kiosk %} class="kiosk"{% endif %}{% endblock %}
+{% block header %}{% if not kiosk %}{{ super() }}{% endif %}{% endblock %}
+{% block body %}
+<h1>{% if name %}You're ready, {{ name }}!{% else %}You're ready!{% endif %} 🏁</h1>
+<p class="status ok ready-banner">Ready to race. Listen for your heat to be called.</p>
+{% if kiosk %}<p><a class="button" href="{{ home }}">Next racer</a></p>
+{% else %}<p><a href="{{ url_for('live.index') }}">Live timing</a></p>{% endif %}
+{% endblock %}

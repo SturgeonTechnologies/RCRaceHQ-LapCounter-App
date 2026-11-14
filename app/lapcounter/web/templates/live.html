@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Live timing{% endblock %}
+{% block body %}
+<h1>Live</h1>
+{% if checkin_open %}<p class="checkin-cta"><a href="{{ url_for('checkin.form') }}">Racing today? Check in here</a></p>{% endif %}
+<p id="decoder" class="status unknown" aria-live="polite">Connecting to the decoder…</p>
+
+<section id="race" data-src="{{ url_for('race.current_json') }}" hidden>
+  <h2 id="race-title">No heat on track</h2>
+  <p class="race-clock"><span id="race-phase"></span> <span id="race-clock"></span></p>
+  <table id="standings">
+    <thead><tr><th>#</th><th>Racer</th><th>Laps</th><th>Time</th><th>Best</th><th>Last</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<h2>Latest passings</h2>
+<table id="passings">
+  <thead><tr><th>Time</th><th>Transponder</th><th>Signal</th></tr></thead>
+  <tbody><tr class="empty"><td colspan="3">No passings yet.</td></tr></tbody>
+</table>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='live.js') }}"></script>
+<script src="{{ url_for('static', filename='race.js') }}"></script>{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Learn {{ s.label }}{% endblock %}
+{% block body %}
+<h1>Learn {{ s.label }}{% if s.racer_name %} <small>({{ s.racer_name }})</small>{% endif %}</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+{% if s.closed %}
+  {% if s.result == "recorded" %}
+    <p class="status ok">Recorded. The decoder now reports this transponder as {{ s.label }}.</p>
+    <p class="note">Optional check: pass it over the track loop once and look for {{ s.label }} on the
+      <a href="{{ url_for('live.index') }}">live page</a>.</p>
+  {% else %}
+    <p class="status bad">Cancelled.</p>
+  {% endif %}
+  <p><a href="{{ url_for('transponders.index') }}">Learn another</a></p>
+{% else %}
+<div id="learn" data-api="{{ url_for('transponders.learn_json', session_id=s.id) }}">
+  <ol class="steps">
+    <li data-step="waiting">Place it</li>
+    <li data-step="learning">Hold still</li>
+    <li data-step="ready">Record</li>
+  </ol>
+  <p id="message" class="status unknown" aria-live="polite">{{ s.message }}</p>
+  <progress id="progress" max="100" value="{{ s.progress }}">{{ s.progress }}%</progress>
+  <p id="signal" class="note">Waiting for the decoder…</p>
+
+  <form method="post" action="{{ url_for('transponders.record', session_id=s.id) }}" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button id="record" type="submit" {% if not s.can_record %}disabled{% endif %}>Record as {{ s.label }}</button>
+  </form>
+  <form method="post" action="{{ url_for('transponders.cancel', session_id=s.id) }}" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button type="submit" class="secondary">Cancel</button>
+  </form>
+</div>
+<p class="note">Learning blocks nothing else, but keep other powered transponders off the loop
+  until it's done. Hands off the car while it learns.</p>
+{% endif %}
+{% endblock %}
+{% block scripts %}{% if not s.closed %}<script src="{{ url_for('static', filename='learn.js') }}"></script>{% endif %}{% endblock %}

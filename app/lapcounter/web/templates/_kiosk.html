@@ -1,0 +1,4 @@
+{# Shared by the check-in pages: on the kiosk, no menu, big text, and the
+   screen goes back to the start after idle_s so the next racer can't see
+   the last one's list. #}
+{% macro kiosk_head(kiosk, idle_s, home) %}{% if kiosk %}<meta http-equiv="refresh" content="{{ idle_s }};url={{ home }}">{% endif %}{% endmacro %}

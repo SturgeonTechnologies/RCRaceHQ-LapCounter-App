@@ -7,6 +7,13 @@ COPY lapcounter ./lapcounter
 RUN pip wheel --no-cache-dir --wheel-dir /wheels .
 
 FROM python:3.12-slim-bookworm
+# Shown on the public GHCR package page and by `docker inspect`.
+LABEL org.opencontainers.image.title="RC Race HQ Lap Counter" \
+      org.opencontainers.image.description="Lap counter app for Raspberry Pi: live timing, heats, check-in kiosk, transponder learning" \
+      org.opencontainers.image.vendor="Sturgeon Technologies LLC" \
+      org.opencontainers.image.licenses="FSL-1.1-ALv2" \
+      org.opencontainers.image.url="https://www.rcracehq.com" \
+      org.opencontainers.image.source="https://github.com/SturgeonTechnologies/RCRaceHQ-LapCounter-App"
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     LAPCOUNTER_DB=/var/lib/lapcounter/lapcounter.db \
